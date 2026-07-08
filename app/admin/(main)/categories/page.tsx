@@ -26,7 +26,11 @@ export default function AdminCategoriesPage() {
         throw new Error(`Failed to load categories: ${response.status} ${message}`)
       }
       const data = await response.json()
-      setCategories(Array.isArray(data) ? data : [])
+      // Normalize IDs: Prisma returns `id` (mapped to _id in DB). Ensure `_id` exists for frontend keys.
+      const normalized = Array.isArray(data)
+        ? data.map((c: any) => ({ ...c, _id: c._id || c.id || (c._id && c._id.toString && c._id.toString()) }))
+        : []
+      setCategories(normalized)
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error(error)
@@ -67,7 +71,7 @@ export default function AdminCategoriesPage() {
   }
 
   const handleEdit = (category: CategoryItem) => {
-    setEditingId(category._id)
+    setEditingId((category as any)._id || (category as any).id)
     setName(category.name)
     setSlug(category.slug)
     setDescription(category.description || '')
