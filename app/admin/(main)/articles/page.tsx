@@ -83,6 +83,11 @@ export default function AdminArticlesPage() {
     setIsSubmitting(true)
 
     // Validate required fields
+    console.log('[Form Debug] Title:', { value: title, trimmed: title.trim(), isEmpty: !title.trim() })
+    console.log('[Form Debug] Excerpt:', { value: excerpt, trimmed: excerpt.trim(), isEmpty: !excerpt.trim() })
+    console.log('[Form Debug] Content:', { value: content.substring(0, 50), trimmed: content.trim(), isEmpty: !content.trim() })
+    console.log('[Form Debug] Category:', { value: category, trimmed: category.trim(), isEmpty: !category.trim() })
+
     if (!title.trim() || !excerpt.trim() || !content.trim() || !category.trim()) {
       setErrorMessage('Judul, ringkasan, isi, dan kategori wajib diisi.')
       setIsSubmitting(false)
@@ -90,6 +95,8 @@ export default function AdminArticlesPage() {
     }
 
     const payload = { title, slug, excerpt, content, category, featuredImage }
+    console.log('[Form Debug] Payload:', payload)
+    
     const response = await fetch(editingId ? `/api/admin/articles/${editingId}` : '/api/admin/articles', {
       method: editingId ? 'PUT' : 'POST',
       credentials: 'include',

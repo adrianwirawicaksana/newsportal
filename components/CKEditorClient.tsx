@@ -46,17 +46,38 @@ export default function CKEditorClient({ id = 'editor', value, onChange }: Props
           editorInstance.setData(value || '')
           editorInstance.on('instanceReady', () => {
             editorInstance.resize('100%', '100%')
+            // Log when editor is ready
+            console.log('[CKEditor] Editor ready, content length:', editorInstance.getData().length)
           })
           editorInstance.on('change', () => {
             const data = editorInstance.getData()
+            console.log('[CKEditor] Change event, content length:', data.length)
             onChange(data)
           })
+          editorInstance.on('blur', () => {
+            const data = editorInstance.getData()
+            console.log('[CKEditor] Blur event, content length:', data.length)
+            onChange(data)
+          })
+          // Also listen to contentDom for real-time updates
+          editorInstance.on('instanceReady', () => {
+            editorInstance.editable().attachListener(editorInstance.editable(), 'input', () => {
+              const data = editorInstance.getData()
+              console.log('[CKEditor] Input event, content length:', data.length)
+              onChange(data)
+            })
+            editorInstance.editable().attachListener(editorInstance.editable(), 'keyup', () => {
+              const data = editorInstance.getData()
+              console.log('[CKEditor] Keyup event, content length:', data.length)
+              onChange(data)
+            })
+          })
         } catch (err) {
-          // ignore
+          console.error('[CKEditor] Error setting up editor:', err)
         }
       })
-      .catch(() => {
-        // failed to load — fallback does nothing
+      .catch((err) => {
+        console.error('[CKEditor] Failed to load script:', err)
       })
 
     return () => {
