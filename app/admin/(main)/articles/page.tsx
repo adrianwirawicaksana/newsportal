@@ -24,6 +24,7 @@ export default function AdminArticlesPage() {
   const [categories, setCategories] = useState<CategoryItem[]>([])
   const [title, setTitle] = useState('')
   const [slug, setSlug] = useState('')
+  const [slugTouched, setSlugTouched] = useState(false)
   const [excerpt, setExcerpt] = useState('')
   const [content, setContent] = useState('')
   const [category, setCategory] = useState('')
@@ -62,6 +63,14 @@ export default function AdminArticlesPage() {
     }
   }
 
+  const generateSlug = (text: string) =>
+    text
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '')
+
+
   useEffect(() => {
     void loadData()
   }, [])
@@ -69,6 +78,7 @@ export default function AdminArticlesPage() {
   const resetForm = () => {
     setTitle('')
     setSlug('')
+    setSlugTouched(false)
     setExcerpt('')
     setContent('')
     setCategory('')
@@ -121,6 +131,7 @@ export default function AdminArticlesPage() {
     setEditingId(article._id)
     setTitle(article.title)
     setSlug(article.slug)
+    setSlugTouched(true)
     setExcerpt(article.excerpt)
     setContent(article.content)
     setCategory(article.category)
@@ -157,11 +168,27 @@ export default function AdminArticlesPage() {
         <div className="grid gap-3 md:grid-cols-2">
           <div>
             <label className="text-sm font-semibold text-slate-700">Judul</label>
-            <input value={title} onChange={(event) => setTitle(event.target.value)} className="mt-1 w-full rounded-sm border border-gray-300 px-3 py-2" required />
+            <input
+              value={title}
+              onChange={(event) => {
+                const v = event.target.value
+                setTitle(v)
+                if (!slugTouched) setSlug(generateSlug(v))
+              }}
+              className="mt-1 w-full rounded-sm border border-gray-300 px-3 py-2"
+              required
+            />
           </div>
           <div>
             <label className="text-sm font-semibold text-slate-700">Slug</label>
-            <input value={slug} onChange={(event) => setSlug(event.target.value)} className="mt-1 w-full rounded-sm border border-gray-300 px-3 py-2" />
+            <input
+              value={slug}
+              onChange={(event) => {
+                setSlug(event.target.value)
+                setSlugTouched(true)
+              }}
+              className="mt-1 w-full rounded-sm border border-gray-300 px-3 py-2"
+            />
           </div>
           <div>
             <label className="text-sm font-semibold text-slate-700">Kategori</label>

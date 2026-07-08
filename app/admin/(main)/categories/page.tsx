@@ -14,6 +14,7 @@ export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<CategoryItem[]>([])
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
+  const [slugTouched, setSlugTouched] = useState(false)
   const [description, setDescription] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -45,9 +46,17 @@ export default function AdminCategoriesPage() {
   const resetForm = () => {
     setName('')
     setSlug('')
+    setSlugTouched(false)
     setDescription('')
     setEditingId(null)
   }
+
+  const generateSlug = (text: string) =>
+    text
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '')
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -75,6 +84,7 @@ export default function AdminCategoriesPage() {
     setName(category.name)
     setSlug(category.slug)
     setDescription(category.description || '')
+    setSlugTouched(true)
   }
 
   const handleDelete = async (id: string) => {
@@ -94,11 +104,27 @@ export default function AdminCategoriesPage() {
       <form onSubmit={handleSubmit} className="mt-6 grid gap-3 rounded-sm border border-gray-200 bg-slate-50 p-4 md:grid-cols-2">
         <div className="md:col-span-2">
           <label className="text-sm font-semibold text-slate-700">Nama kategori</label>
-          <input value={name} onChange={(event) => setName(event.target.value)} className="mt-1 w-full rounded-sm border border-gray-300 px-3 py-2" required />
+          <input
+            value={name}
+            onChange={(event) => {
+              const v = event.target.value
+              setName(v)
+              if (!slugTouched) setSlug(generateSlug(v))
+            }}
+            className="mt-1 w-full rounded-sm border border-gray-300 px-3 py-2"
+            required
+          />
         </div>
         <div>
           <label className="text-sm font-semibold text-slate-700">Slug</label>
-          <input value={slug} onChange={(event) => setSlug(event.target.value)} className="mt-1 w-full rounded-sm border border-gray-300 px-3 py-2" />
+          <input
+            value={slug}
+            onChange={(event) => {
+              setSlug(event.target.value)
+              setSlugTouched(true)
+            }}
+            className="mt-1 w-full rounded-sm border border-gray-300 px-3 py-2"
+          />
         </div>
         <div>
           <label className="text-sm font-semibold text-slate-700">Deskripsi</label>
