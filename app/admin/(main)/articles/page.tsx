@@ -166,9 +166,9 @@ export default function AdminArticlesPage() {
           <div>
             <label className="text-sm font-semibold text-slate-700">Kategori</label>
             <select value={category} onChange={(event) => setCategory(event.target.value)} className="mt-1 w-full rounded-sm border border-gray-300 px-3 py-2" required>
-              <option key="__default__" value="">Pilih kategori</option>
-              {categories.map((item) => (
-                <option key={item._id} value={item.name}>{item.name}</option>
+              <option value="">Pilih kategori</option>
+              {categories.map((item, index) => (
+                <option key={`${item._id}-${index}`} value={item.name}>{item.name}</option>
               ))}
             </select>
           </div>

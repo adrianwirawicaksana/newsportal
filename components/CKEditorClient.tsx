@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 type Props = {
   id?: string
@@ -10,6 +10,7 @@ type Props = {
 
 export default function CKEditorClient({ id = 'editor', value, onChange }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const [editorLoaded, setEditorLoaded] = useState(false)
 
   useEffect(() => {
     // Load CKEditor 4 from CDN if not already loaded
@@ -17,10 +18,29 @@ export default function CKEditorClient({ id = 'editor', value, onChange }: Props
       return new Promise<void>((resolve, reject) => {
         if ((window as any).CKEDITOR) return resolve()
         const s = document.createElement('script')
-        // Use the latest free CKEditor 4 standard build instead of the commercial LTS bundle
-        s.src = 'https://cdn.ckeditor.com/4.25.1/standard/ckeditor.js'
-        s.onload = () => resolve()
-        s.onerror = () => reject(new Error('Failed to load CKEditor script'))
+        // Use the latest free CKEditor 4 standard build - use jsDelivr as fallback
+        s.src = 'https://cdn.jsdelivr.net/npm/ckeditor@4.25.1/full/ckeditor.js'
+        s.async = true
+        s.onload = () => {
+          console.log('[CKEditor] Script loaded successfully')
+          resolve()
+        }
+        s.onerror = () => {
+          console.error('[CKEditor] Failed to load from jsDelivr, trying official CDN')
+          // Fallback to official CDN
+          const s2 = document.createElement('script')
+          s2.src = 'https://cdn.ckeditor.com/4.25.1/standard/ckeditor.js'
+          s2.async = true
+          s2.onload = () => {
+            console.log('[CKEditor] Script loaded from official CDN')
+            resolve()
+          }
+          s2.onerror = () => {
+            console.error('[CKEditor] Failed to load from official CDN too')
+            reject(new Error('Failed to load CKEditor from any CDN'))
+          }
+          document.head.appendChild(s2)
+        }
         document.head.appendChild(s)
       })
     }
@@ -46,6 +66,7 @@ export default function CKEditorClient({ id = 'editor', value, onChange }: Props
           editorInstance.setData(value || '')
           editorInstance.on('instanceReady', () => {
             editorInstance.resize('100%', '100%')
+            setEditorLoaded(true)
             // Log when editor is ready
             console.log('[CKEditor] Editor ready, content length:', editorInstance.getData().length)
           })
@@ -74,10 +95,12 @@ export default function CKEditorClient({ id = 'editor', value, onChange }: Props
           })
         } catch (err) {
           console.error('[CKEditor] Error setting up editor:', err)
+          setEditorLoaded(false)
         }
       })
       .catch((err) => {
-        console.error('[CKEditor] Failed to load script:', err)
+        console.error('[CKEditor] Failed to load script, using fallback textarea:', err)
+        setEditorLoaded(false)
       })
 
     return () => {
@@ -102,7 +125,18 @@ export default function CKEditorClient({ id = 'editor', value, onChange }: Props
           min-height: 100% !important;
         }
       `}</style>
-      <textarea id={id} ref={textareaRef} defaultValue={value} className="h-full w-full" />
+      <textarea 
+        id={id} 
+        ref={textareaRef} 
+        defaultValue={value} 
+        className="h-full w-full"
+        onChange={(e) => {
+          if (!editorLoaded) {
+            console.log('[CKEditor] Using fallback textarea, content length:', e.target.value.length)
+            onChange(e.target.value)
+          }
+        }}
+      />
     </>
   )
 }
