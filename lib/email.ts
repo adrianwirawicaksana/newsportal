@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
 
-function buildEmailHtml(verificationUrl: string) {
+function buildVerificationHtml(verificationUrl: string) {
   return `
     <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827;">
       <h2 style="color: #2563eb;">Verifikasi akun Anda</h2>
@@ -18,7 +18,25 @@ function buildEmailHtml(verificationUrl: string) {
   `;
 }
 
-async function sendWithSmtp(email: string, verificationUrl: string) {
+function buildPasswordResetHtml(resetUrl: string) {
+  return `
+    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827;">
+      <h2 style="color: #2563eb;">Reset password Anda</h2>
+      <p>Kami menerima permintaan untuk mengatur ulang password akun NewsPortal Anda.</p>
+      <p>Klik tombol di bawah ini untuk membuat password baru:</p>
+      <p>
+        <a href="${resetUrl}" style="display:inline-block;padding:12px 20px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;">
+          Reset Password
+        </a>
+      </p>
+      <p>Jika tombol tidak bekerja, salin tautan berikut ke browser:</p>
+      <p>${resetUrl}</p>
+      <p>Jika Anda tidak meminta reset password, abaikan email ini.</p>
+    </div>
+  `;
+}
+
+async function sendWithSmtp(email: string, subject: string, html: string) {
   const host = process.env.EMAIL_SERVER_HOST?.trim();
   const port = Number.parseInt(process.env.EMAIL_SERVER_PORT || "", 10);
   const user = process.env.EMAIL_SERVER_USER?.trim();
@@ -41,8 +59,8 @@ async function sendWithSmtp(email: string, verificationUrl: string) {
   await transporter.sendMail({
     from: process.env.EMAIL_FROM || user,
     to: email,
-    subject: "Verifikasi akun NewsPortal",
-    html: buildEmailHtml(verificationUrl),
+    subject,
+    html,
   });
 
   return {
@@ -56,7 +74,11 @@ export async function sendVerificationEmail(
   verificationUrl: string,
 ) {
   try {
-    const smtpResult = await sendWithSmtp(email, verificationUrl);
+    const smtpResult = await sendWithSmtp(
+      email,
+      "Verifikasi akun NewsPortal",
+      buildVerificationHtml(verificationUrl),
+    );
     if (smtpResult.success) {
       return smtpResult;
     }
@@ -72,6 +94,32 @@ export async function sendVerificationEmail(
         error instanceof Error
           ? error.message
           : "Gagal mengirim email melalui SMTP",
+    };
+  }
+}
+
+export async function sendPasswordResetEmail(email: string, resetUrl: string) {
+  try {
+    const smtpResult = await sendWithSmtp(
+      email,
+      "Reset password NewsPortal",
+      buildPasswordResetHtml(resetUrl),
+    );
+    if (smtpResult.success) {
+      return smtpResult;
+    }
+
+    return {
+      success: false,
+      message: smtpResult.message,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Gagal mengirim email reset password melalui SMTP",
     };
   }
 }

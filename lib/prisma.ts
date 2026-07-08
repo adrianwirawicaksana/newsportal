@@ -1,60 +1,36 @@
-import { promises as dns, setServers } from "node:dns";
-import { MongoClient } from "mongodb";
+import { PrismaClient } from "@prisma/client";
 
-const globalForMongo = globalThis as unknown as {
-  mongoClient?: MongoClient;
-  mongoUri?: string;
+const globalForPrisma = globalThis as typeof globalThis & {
+  prisma?: PrismaClient;
 };
 
-setServers(["8.8.8.8", "1.1.1.1"]);
+function getPrismaClient() {
+  const dbUrl = process.env.MONGODB_URI ?? process.env.DATABASE_URL;
 
-function extractMongoHost(uri: string) {
-  try {
-    const withoutProtocol = uri
-      .replace(/^mongodb\+srv:\/\//, "")
-      .replace(/^mongodb:\/\//, "");
-    return (
-      withoutProtocol
-        .split("/")[0]
-        .split("?")[0]
-        .split("#")[0]
-        .split("@")
-        .pop() ?? ""
+  if (!dbUrl) {
+    throw new Error(
+      "MONGODB_URI or DATABASE_URL must be set in production for PrismaClient.",
     );
-  } catch {
-    return "";
   }
+
+  if (!globalForPrisma.prisma) {
+    globalForPrisma.prisma = new PrismaClient();
+  }
+
+  return globalForPrisma.prisma;
 }
 
-export async function connectToMongo() {
-  const uri = process.env.MONGODB_URI;
+const prisma = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    const client = getPrismaClient();
+    return Reflect.get(client, prop);
+  },
+});
 
-  if (!uri) {
-    throw new Error("MONGODB_URI is not configured.");
-  }
+export default prisma;
 
-  const host = extractMongoHost(uri);
-
-  if (host) {
-    try {
-      await dns.resolveSrv(`_mongodb._tcp.${host}`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`MongoDB DNS lookup failed for ${host}: ${message}`);
-    }
-  }
-
-  if (!globalForMongo.mongoClient || globalForMongo.mongoUri !== uri) {
-    globalForMongo.mongoClient = new MongoClient(uri);
-    globalForMongo.mongoUri = uri;
-  }
-
-  try {
-    await globalForMongo.mongoClient.connect();
-    await globalForMongo.mongoClient.db("admin").command({ ping: 1 });
-    return globalForMongo.mongoClient;
-  } catch (error) {
-    globalForMongo.mongoClient = undefined;
-    throw error;
-  }
+export async function connectToPrisma() {
+  const client = getPrismaClient();
+  await client.$connect();
+  return client;
 }

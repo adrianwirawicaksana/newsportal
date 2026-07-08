@@ -5,11 +5,11 @@ import {
   scryptSync,
   timingSafeEqual,
 } from "crypto";
+import { cookies } from "next/headers";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import connectToDatabase from "@/lib/mongodb";
-import UserModel from "@/models/User";
-import { sendVerificationEmail } from "@/lib/email";
+import prisma from "@/lib/prisma";
+import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email";
 
 export type AuthUser = {
   id: string;
@@ -88,7 +88,7 @@ function storeSession(session: SessionRecord) {
 
 async function tryDatabaseConnection() {
   try {
-    await connectToDatabase();
+    await prisma.$connect();
     return true;
   } catch {
     return false;
@@ -243,20 +243,22 @@ export async function createUserRecord(
   const hasDatabase = await tryDatabaseConnection();
   if (hasDatabase) {
     try {
-      const created = await UserModel.create({
-        name,
-        email: normalizedEmail,
-        passwordHash,
-        isVerified: verified,
-        provider: "email",
-        role: "user",
+      const created = await prisma.user.create({
+        data: {
+          name,
+          email: normalizedEmail,
+          passwordHash,
+          isVerified: verified,
+          provider: "email",
+          role: "user",
+        },
       });
 
       const storedUser = toStoredUser({
-        id: created._id.toString(),
+        id: created.id,
         name: created.name,
         email: created.email,
-        passwordHash: created.passwordHash,
+        passwordHash: created.passwordHash ?? "",
         verified: created.isVerified,
         createdAt: created.createdAt,
       });
@@ -274,7 +276,7 @@ export async function createUserRecord(
   }
 
   if (process.env.NODE_ENV === "production") {
-    throw new Error("MongoDB connection unavailable");
+    throw new Error("Database connection unavailable");
   }
 
   storeUser(fallbackUser);
@@ -301,10 +303,18 @@ export async function recreateUnverifiedUserRecord(
   const hasDatabase = await tryDatabaseConnection();
   if (hasDatabase) {
     try {
-      const updated = await UserModel.findOneAndUpdate(
-        { email: normalizedEmail, isVerified: false, provider: "email" },
-        {
-          $set: {
+      const existing = await prisma.user.findFirst({
+        where: {
+          email: normalizedEmail,
+          isVerified: false,
+          provider: "email",
+        },
+      });
+
+      if (existing) {
+        const updated = await prisma.user.update({
+          where: { id: existing.id },
+          data: {
             name,
             email: normalizedEmail,
             passwordHash,
@@ -312,16 +322,13 @@ export async function recreateUnverifiedUserRecord(
             provider: "email",
             role: "user",
           },
-        },
-        { new: true, runValidators: true },
-      );
+        });
 
-      if (updated) {
         const storedUser = toStoredUser({
-          id: updated._id.toString(),
+          id: updated.id,
           name: updated.name,
           email: updated.email,
-          passwordHash: updated.passwordHash,
+          passwordHash: updated.passwordHash ?? "",
           verified: updated.isVerified,
           createdAt: updated.createdAt,
         });
@@ -365,54 +372,53 @@ export async function createOrUpdateSocialUser({
     cached.name = normalizedName;
     cached.verified = true;
     storeUser(cached);
-    return cached;
   }
 
   const hasDatabase = await tryDatabaseConnection();
   if (hasDatabase) {
     try {
-      const existingUser = await UserModel.findOne({
-        email: normalizedEmail,
-      }).lean();
+      const existingUser = await prisma.user.findUnique({
+        where: { email: normalizedEmail },
+      });
+
       if (existingUser) {
-        const updatedUser = await UserModel.findByIdAndUpdate(
-          existingUser._id,
-          {
+        const updatedUser = await prisma.user.update({
+          where: { id: existingUser.id },
+          data: {
             name: normalizedName,
             provider,
             isVerified: true,
             lastLoginAt: new Date(),
           },
-          { new: true },
-        );
+        });
 
-        if (updatedUser) {
-          const storedUser = toStoredUser({
-            id: updatedUser._id.toString(),
-            name: updatedUser.name,
-            email: updatedUser.email,
-            passwordHash: updatedUser.passwordHash || "",
-            verified: updatedUser.isVerified,
-            createdAt: updatedUser.createdAt,
-          });
+        const storedUser = toStoredUser({
+          id: updatedUser.id,
+          name: updatedUser.name,
+          email: updatedUser.email,
+          passwordHash: updatedUser.passwordHash || "",
+          verified: updatedUser.isVerified,
+          createdAt: updatedUser.createdAt,
+        });
 
-          storeUser(storedUser);
-          return storedUser;
-        }
+        storeUser(storedUser);
+        return storedUser;
       }
 
-      const created = await UserModel.create({
-        name: normalizedName,
-        email: normalizedEmail,
-        passwordHash: "",
-        isVerified: true,
-        provider,
-        role: "user",
-        lastLoginAt: new Date(),
+      const created = await prisma.user.create({
+        data: {
+          name: normalizedName,
+          email: normalizedEmail,
+          passwordHash: "",
+          isVerified: true,
+          provider,
+          role: "user",
+          lastLoginAt: new Date(),
+        },
       });
 
       const storedUser = toStoredUser({
-        id: created._id.toString(),
+        id: created.id,
         name: created.name,
         email: created.email,
         passwordHash: created.passwordHash || "",
@@ -422,10 +428,15 @@ export async function createOrUpdateSocialUser({
 
       storeUser(storedUser);
       return storedUser;
-    } catch {
+    } catch (error) {
+      console.error("Social auth persistence failed", error);
       storeUser(fallbackUser);
       return fallbackUser;
     }
+  }
+
+  if (cached) {
+    return cached;
   }
 
   storeUser(fallbackUser);
@@ -445,16 +456,18 @@ export async function getUserByEmail(email: string) {
   }
 
   try {
-    const user = await UserModel.findOne({ email: normalizedEmail }).lean();
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
     if (!user) {
       return null;
     }
 
     const storedUser = toStoredUser({
-      id: user._id.toString(),
+      id: user.id,
       name: user.name,
       email: user.email,
-      passwordHash: user.passwordHash,
+      passwordHash: user.passwordHash ?? "",
       verified: user.isVerified,
       createdAt: user.createdAt,
     });
@@ -478,16 +491,16 @@ export async function getUserById(id: string) {
   }
 
   try {
-    const user = await UserModel.findById(id).lean();
+    const user = await prisma.user.findUnique({ where: { id } });
     if (!user) {
       return null;
     }
 
     const storedUser = toStoredUser({
-      id: user._id.toString(),
+      id: user.id,
       name: user.name,
       email: user.email,
-      passwordHash: user.passwordHash,
+      passwordHash: user.passwordHash ?? "",
       verified: user.isVerified,
       createdAt: user.createdAt,
     });
@@ -496,6 +509,23 @@ export async function getUserById(id: string) {
     return storedUser;
   } catch {
     return null;
+  }
+}
+
+export async function updateUserLastLogin(userId: string) {
+  const hasDatabase = await tryDatabaseConnection();
+  if (!hasDatabase) {
+    return false;
+  }
+
+  try {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { lastLoginAt: new Date() },
+    });
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -518,10 +548,10 @@ export async function markUserVerified(email: string) {
   const hasDatabase = await tryDatabaseConnection();
   if (hasDatabase) {
     try {
-      await UserModel.updateOne(
-        { email: normalizedEmail },
-        { isVerified: true },
-      );
+      await prisma.user.updateMany({
+        where: { email: normalizedEmail },
+        data: { isVerified: true },
+      });
     } catch {
       // ignore persistence errors
     }
@@ -559,10 +589,12 @@ export async function markUserVerifiedById(
       const targetId = user.id;
       const normalizedEmail = user.email.toLowerCase();
 
-      await UserModel.updateOne(
-        { $or: [{ _id: targetId }, { email: normalizedEmail }] },
-        { isVerified: true },
-      );
+      await prisma.user.updateMany({
+        where: {
+          OR: [{ id: targetId }, { email: normalizedEmail }],
+        },
+        data: { isVerified: true },
+      });
     } catch {
       // ignore persistence errors
     }
@@ -578,11 +610,22 @@ export function createEmailVerificationToken(userId: string, email: string) {
   );
 }
 
+export function createPasswordResetToken(userId: string, email: string) {
+  return createToken({ sub: userId, email, type: "password-reset" }, 60 * 60);
+}
+
 export async function sendVerificationEmailToUser(user: StoredUser) {
   const verificationToken = createEmailVerificationToken(user.id, user.email);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const verificationUrl = `${appUrl}/auth/verify-email?token=${encodeURIComponent(verificationToken)}`;
   return sendVerificationEmail(user.email, verificationUrl);
+}
+
+export async function sendPasswordResetEmailToUser(user: StoredUser) {
+  const resetToken = createPasswordResetToken(user.id, user.email);
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const resetUrl = `${appUrl}/auth/reset-password?token=${encodeURIComponent(resetToken)}`;
+  return sendPasswordResetEmail(user.email, resetUrl);
 }
 
 export function verifyEmailVerificationToken(token: string) {
@@ -595,6 +638,60 @@ export function verifyEmailVerificationToken(token: string) {
     userId: payload.sub,
     email: typeof payload.email === "string" ? payload.email : null,
   };
+}
+
+export function verifyPasswordResetToken(token: string) {
+  const payload = verifyToken(token);
+  if (!payload?.sub || payload.type !== "password-reset") {
+    return null;
+  }
+
+  return {
+    userId: payload.sub,
+    email: typeof payload.email === "string" ? payload.email : null,
+  };
+}
+
+export async function updateUserPassword(
+  userId: string,
+  email: string | null | undefined,
+  newPassword: string,
+) {
+  const normalizedEmail = email?.toLowerCase();
+  let user = users.get(userId);
+
+  if (!user) {
+    const persistedUser = await getUserById(userId);
+    user = persistedUser ?? undefined;
+  }
+
+  if (!user && normalizedEmail) {
+    const persistedUser = await getUserByEmail(normalizedEmail);
+    user = persistedUser ?? undefined;
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  user.passwordHash = hashPassword(newPassword);
+  storeUser(user);
+
+  const hasDatabase = await tryDatabaseConnection();
+  if (hasDatabase) {
+    try {
+      await prisma.user.updateMany({
+        where: {
+          OR: [{ id: user.id }, { email: user.email }],
+        },
+        data: { passwordHash: user.passwordHash },
+      });
+    } catch {
+      // ignore persistence errors
+    }
+  }
+
+  return user;
 }
 
 function getSessionByRefreshToken(refreshToken: string) {
@@ -679,6 +776,20 @@ export function getRefreshTokenFromRequest(request: NextRequest) {
   }
 
   return null;
+}
+
+export async function getAuthenticatedUserFromCookies() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("auth_token")?.value;
+  if (!token) return null;
+
+  const payload = verifyToken(token);
+  if (!payload?.sub || payload.type !== "access") return null;
+
+  const user = await getUserById(payload.sub);
+  if (!user) return null;
+
+  return sanitizeUser(user);
 }
 
 export async function getAuthenticatedUser(request: NextRequest) {

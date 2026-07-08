@@ -5,20 +5,19 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, type FormEvent } from 'react'
 import AuthButton from '@/components/ui/Button'
+import Loading from '@/app/loading'
 import SocialAuthButtons from '@/components/ui/SocialAuthButtons'
+import { useToast } from '@/components/ui/ToastProvider'
 
 function RegisterForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
+  const { showError, showSuccess } = useToast()
   const router = useRouter()
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setIsLoading(true)
-    setError('')
-    setNotice('')
 
     const formData = new FormData(event.currentTarget)
     const name = formData.get('name')?.toString().trim() ?? ''
@@ -27,25 +26,25 @@ function RegisterForm() {
     const confirmPassword = formData.get('confirmPassword')?.toString() ?? ''
 
     if (!name || !email || !password || !confirmPassword) {
-      setError('Semua field harus diisi sebelum mendaftar.')
+      showError('Semua field harus diisi sebelum mendaftar.')
       setIsLoading(false)
       return
     }
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError('Masukkan alamat email yang valid.')
+      showError('Masukkan alamat email yang valid.')
       setIsLoading(false)
       return
     }
 
     if (password.length < 8) {
-      setError('Kata sandi harus memiliki minimal 8 karakter.')
+      showError('Kata sandi harus memiliki minimal 8 karakter.')
       setIsLoading(false)
       return
     }
 
     if (password !== confirmPassword) {
-      setError('Kata sandi dan konfirmasi kata sandi tidak cocok.')
+      showError('Kata sandi dan konfirmasi kata sandi tidak cocok.')
       setIsLoading(false)
       return
     }
@@ -66,27 +65,33 @@ function RegisterForm() {
     const data = await response.json().catch(() => null)
 
     if (!response.ok) {
-      setError(data?.message || 'Gagal mendaftar')
+      showError(data?.message || 'Gagal mendaftar')
       setIsLoading(false)
       return
     }
 
-    setNotice('Pendaftaran berhasil. Silakan cek email Anda untuk verifikasi.')
+    showSuccess('Pendaftaran berhasil. Silakan cek email Anda untuk verifikasi.')
     router.push(`/auth/verify-email?email=${encodeURIComponent(payload.email)}`)
   }
 
   return (
     <div className="w-full px-1 sm:px-2">
+      {isLoading ? <Loading /> : null}
       <div className="mb-6 sm:mb-8">
-        <h2 className="text-2xl sm:text-3xl font-semibold text-slate-900">Buat akun</h2>
-        <p className="mt-2 text-sm sm:text-base text-slate-600">
+        <div className="mb-3 flex items-center gap-3">
+         <h2
+            className="font-bold tracking-tight text-slate-900"
+            style={{ fontSize: '1.5rem', lineHeight: 1.1 }}
+          >Buat akun</h2>
+        </div>
+        <p className="mt-2 text-[0.9rem] sm:text-[0.95rem] leading-6 text-slate-600">
           Daftar untuk mulai menikmati berita favoritmu.
         </p>
       </div>
 
       <form className="space-y-4 sm:space-y-5" onSubmit={handleSubmit}>
         <div>
-          <label className="mb-1.5 block text-sm sm:text-base font-medium text-black" htmlFor="name">
+          <label className="mb-1.5 block text-[0.9rem] sm:text-[0.95rem] font-medium text-black" htmlFor="name">
             Nama lengkap
           </label>
           <input
@@ -94,13 +99,13 @@ function RegisterForm() {
             name="name"
             type="text"
             autoComplete="name"
-            className="w-full rounded-md border border-slate-300 px-4 py-3 sm:py-3.5 text-black outline-none transition focus:border-blue-500"
+            className="w-full rounded-md border border-slate-300 px-4 py-3 sm:py-3.5 text-[16px] sm:text-[16px] text-black outline-none transition focus:border-blue-500"
             placeholder="Masukkan nama lengkap"
           />
         </div>
 
         <div>
-          <label className="mb-1.5 block text-sm sm:text-base font-medium text-black" htmlFor="email">
+          <label className="mb-1.5 block text-[0.9rem] sm:text-[0.95rem] font-medium text-black" htmlFor="email">
             Email
           </label>
           <input
@@ -108,13 +113,13 @@ function RegisterForm() {
             name="email"
             type="email"
             autoComplete="email"
-            className="w-full rounded-md border border-slate-300 px-4 py-3 sm:py-3.5 text-black outline-none transition focus:border-blue-500"
+            className="w-full rounded-md border border-slate-300 px-4 py-3 sm:py-3.5 text-[16px] sm:text-[16px] text-black outline-none transition focus:border-blue-500"
             placeholder="prabowo@email.com"
           />
         </div>
 
         <div>
-          <label className="mb-1.5 block text-sm sm:text-base font-medium text-black" htmlFor="password">
+          <label className="mb-1.5 block text-[0.9rem] sm:text-[0.95rem] font-medium text-black" htmlFor="password">
             Kata sandi
           </label>
           <div className="relative">
@@ -123,7 +128,7 @@ function RegisterForm() {
               name="password"
               type={showPassword ? 'text' : 'password'}
               autoComplete="new-password"
-              className="w-full rounded-md border border-slate-300 px-4 py-3 sm:py-3.5 pr-14 text-black outline-none transition focus:border-blue-500"
+              className="w-full rounded-md border border-slate-300 px-4 py-3 sm:py-3.5 pr-14 text-[16px] sm:text-[16px] text-black outline-none transition focus:border-blue-500"
               placeholder="Minimal 8 karakter"
             />
             <button
@@ -138,7 +143,7 @@ function RegisterForm() {
         </div>
 
         <div>
-          <label className="mb-1.5 block text-sm sm:text-base font-medium text-black" htmlFor="confirmPassword">
+          <label className="mb-1.5 block text-[0.9rem] sm:text-[0.95rem] font-medium text-black" htmlFor="confirmPassword">
             Konfirmasi kata sandi
           </label>
           <div className="relative">
@@ -147,7 +152,7 @@ function RegisterForm() {
               name="confirmPassword"
               type={showPassword ? 'text' : 'password'}
               autoComplete="new-password"
-              className="w-full rounded-md border border-slate-300 px-4 py-3 sm:py-3.5 pr-14 text-black outline-none transition focus:border-blue-500"
+              className="w-full rounded-md border border-slate-300 px-4 py-3 sm:py-3.5 pr-14 text-[16px] sm:text-[16px] text-black outline-none transition focus:border-blue-500"
               placeholder="Ulangi kata sandi"
             />
             <button
@@ -161,8 +166,6 @@ function RegisterForm() {
           </div>
         </div>
 
-        {notice ? <p className="text-sm text-emerald-600">{notice}</p> : null}
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
         <AuthButton type="submit" disabled={isLoading}>
           {isLoading ? 'Memproses...' : 'Daftar'}
         </AuthButton>
@@ -172,10 +175,14 @@ function RegisterForm() {
         <SocialAuthButtons />
       </div>
 
-      <p className="mt-6 text-center text-sm sm:text-base text-slate-600">
+      <p className="mt-6 text-center text-[0.9rem] sm:text-[0.95rem] text-slate-600">
         Sudah punya akun?{' '}
         <Link href="/auth/login" className="font-semibold text-blue-500 hover:text-blue-600">
           Masuk di sini
+        </Link>{' '}
+        atau{' '}
+        <Link href="/admin/login" className="font-semibold text-blue-500 hover:text-blue-600">
+          Login admin
         </Link>
       </p>
     </div>

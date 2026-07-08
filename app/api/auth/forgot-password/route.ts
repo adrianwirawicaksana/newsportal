@@ -5,6 +5,7 @@ import {
   getUserByEmail,
   isValidEmail,
   parseJsonBody,
+  sendPasswordResetEmailToUser,
 } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
@@ -22,11 +23,26 @@ export async function POST(request: NextRequest) {
 
   const user = await getUserByEmail(email);
   if (!user) {
-    return getErrorResponse("Email tidak ditemukan", 404);
+    return getSuccessResponse({
+      message:
+        "Jika email terdaftar, instruksi reset password telah dikirim ke email Anda.",
+      emailSent: true,
+    });
+  }
+
+  const emailResult = await sendPasswordResetEmailToUser(user);
+  if (!emailResult.success) {
+    console.error("Password reset email failed:", emailResult.message);
+    return getErrorResponse(
+      "Gagal mengirim instruksi reset password. Silakan coba lagi nanti.",
+      502,
+    );
   }
 
   return getSuccessResponse({
-    message: "Instruksi reset password telah dikirim ke email Anda",
+    message:
+      "Instruksi reset password telah dikirim ke email Anda. Silakan cek inbox atau folder spam.",
+    emailSent: true,
     email: user.email,
   });
 }

@@ -11,7 +11,7 @@ export default function AuthButton({ children, type = 'button', onClick, disable
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`w-full rounded-md bg-linear-to-t from-blue-600 to-blue-500 px-4 py-3 sm:py-3.5 font-semibold text-white transition duration-200 ease-in-out ${disabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer hover:bg-blue-600'}`}
+      className={`w-full rounded-md bg-linear-to-t from-blue-600 to-blue-500 px-4 py-3 sm:py-3.5 text-[15px] sm:text-[16px] font-semibold text-white transition duration-200 ease-in-out ${disabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer hover:bg-blue-600'}`}
     >
       {children}
     </button>

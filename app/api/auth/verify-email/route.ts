@@ -3,6 +3,7 @@ import {
   getErrorResponse,
   getSuccessResponse,
   getUserByEmail,
+  markUserVerified,
   markUserVerifiedById,
   parseJsonBody,
   sendVerificationEmailToUser,
@@ -16,11 +17,29 @@ export async function POST(request: NextRequest) {
     return getErrorResponse("Request body tidak valid", 400);
   }
 
-  const { token, resend, email } = body as {
+  const { token, resend, email, check } = body as {
     token?: string;
     resend?: boolean;
     email?: string;
+    check?: boolean;
   };
+
+  if (check) {
+    if (!email || typeof email !== "string") {
+      return getErrorResponse("Email wajib diisi", 400);
+    }
+
+    const user = await getUserByEmail(email);
+    if (!user) {
+      return getErrorResponse("Email tidak ditemukan", 404);
+    }
+
+    return getSuccessResponse({
+      verified: user.verified,
+      user,
+      checked: true,
+    });
+  }
 
   if (resend) {
     const user = await getUserByEmail(email || "");
@@ -38,7 +57,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (!token || typeof token !== "string") {
-    return getErrorResponse("Token verifikasi wajib diisi", 400);
+    return getErrorResponse("Silahkan verifikasi di gmail anda", 400);
   }
 
   const payload = verifyEmailVerificationToken(token);

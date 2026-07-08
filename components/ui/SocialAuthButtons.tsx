@@ -4,21 +4,21 @@ const providers = [
   {
     name: 'Google',
     src: '/icons/Google.svg',
-    bg: 'bg-linear-to-t from-gray-200 to-white hover:bg-slate-50',
+    bg: 'bg-gradient-to-t from-gray-200 to-white hover:bg-slate-50',
     text: 'text-slate-700',
     border: 'border border-slate-300',
   },
   {
     name: 'TikTok',
     src: '/icons/TikTok.svg',
-    bg: 'bg-linear-to-t from-gray-200 to-white hover:bg-slate-50',
+    bg: 'bg-gradient-to-t from-gray-200 to-white hover:bg-slate-50',
     text: 'text-slate-700',
     border: 'border border-slate-300',
   },
   {
     name: 'Discord',
     src: '/icons/Discord.svg',
-    bg: 'bg-linear-to-t from-gray-200 to-white hover:bg-slate-50',
+    bg: 'bg-gradient-to-t from-gray-200 to-white hover:bg-slate-50',
     text: 'text-slate-700',
     border: 'border border-slate-300',
   },
@@ -33,6 +33,16 @@ export default function SocialAuthButtons({}: SocialAuthButtonsProps) {
       return
     }
 
+    if (providerName === 'Discord') {
+      window.location.href = '/api/auth/discord/login'
+      return
+    }
+
+    if (providerName === 'TikTok') {
+      window.location.href = '/api/auth/tiktok/login'
+      return
+    }
+
     window.alert('Login dengan ' + providerName + ' belum tersedia saat ini.')
   }
 
@@ -40,7 +50,7 @@ export default function SocialAuthButtons({}: SocialAuthButtonsProps) {
     <div className="space-y-3">
       <div className="flex items-center gap-3">
         <div className="h-px flex-1 bg-slate-200" />
-        <span className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">
+        <span className="text-[11px] sm:text-[12px] font-medium uppercase tracking-[0.18em] text-slate-400">
           atau lanjutkan dengan
         </span>
         <div className="h-px flex-1 bg-slate-200" />
@@ -52,7 +62,7 @@ export default function SocialAuthButtons({}: SocialAuthButtonsProps) {
             key={provider.name}
             type="button"
             onClick={() => handleProviderClick(provider.name)}
-            className={`flex min-h-12 items-center justify-center gap-2.5 rounded-md px-3 py-3 text-sm font-semibold transition cursor-pointer ${provider.bg} ${provider.text} ${provider.border}`}
+            className={`flex min-h-12 items-center justify-center gap-2.5 rounded-md px-3 py-3 text-[0.95rem] sm:text-[1rem] font-semibold transition cursor-pointer ${provider.bg} ${provider.text} ${provider.border}`}
           >
             <img
               src={provider.src}

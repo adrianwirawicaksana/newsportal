@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
 
 export async function GET() {
   const mongodbUriDefined = Boolean(process.env.MONGODB_URI);
@@ -22,9 +23,8 @@ export async function GET() {
   }
 
   try {
-    const { connectToMongo } = await import("@/lib/prisma");
-    const client = await connectToMongo();
-    await client.db(mongodbDb).command({ ping: 1 });
+    await prisma.$connect();
+    await prisma.$runCommandRaw({ ping: 1 });
 
     return NextResponse.json({
       ok: true,

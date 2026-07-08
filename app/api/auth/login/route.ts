@@ -8,6 +8,7 @@ import {
   isValidEmail,
   parseJsonBody,
   setAuthCookies,
+  updateUserLastLogin,
   verifyPassword,
 } from "@/lib/auth";
 
@@ -46,6 +47,8 @@ export async function POST(request: NextRequest) {
   if (!verifyPassword(password, user.passwordHash)) {
     return getErrorResponse("Email atau kata sandi salah", 401);
   }
+
+  await updateUserLastLogin(user.id);
 
   const session = createSession(user.id);
   const accessToken = createAccessToken(user.id);
